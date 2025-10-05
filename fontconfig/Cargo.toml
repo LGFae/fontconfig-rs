@@ -23,4 +23,6 @@ version = "6.0.0"
 path = "../fontconfig-sys"
 
 [features]
+default = [ "std" ]
+std = []
 dlopen = [ "yeslogic-fontconfig-sys/dlopen" ]

@@ -1,4 +1,5 @@
 #![deny(missing_docs)]
+#![no_std]
 
 //! A wrapper around [freedesktop.org's Fontconfig library][homepage], for locating fonts on a UNIX
 //! like systems such as Linux and FreeBSD. Requires Fontconfig to be installed. Alternatively,
@@ -46,6 +47,11 @@
 //!
 //! [dlopen]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/dlopen.html
 
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 use fontconfig_sys as sys;
 use fontconfig_sys::ffi_dispatch;
 
@@ -54,13 +60,14 @@ use sys::statics::{LIB, LIB_RESULT};
 #[cfg(not(feature = "dlopen"))]
 use sys::*;
 
-use std::ffi::{c_int, CStr, CString};
-use std::marker::PhantomData;
-use std::mem;
-use std::os::raw::c_char;
-use std::path::PathBuf;
-use std::ptr;
-use std::str::FromStr;
+use core::ffi::{c_char, c_int, CStr};
+use core::marker::PhantomData;
+use core::mem;
+use core::ptr;
+use core::str::FromStr;
+
+use ::alloc::ffi::CString;
+use ::alloc::string::{String, ToString};
 
 pub use sys::constants::*;
 use sys::{FcBool, FcPattern};
@@ -132,8 +139,12 @@ impl Fontconfig {
 pub struct Font {
     /// The true name of this font
     pub name: String,
+    #[cfg(feature = "std")]
     /// The location of this font on the filesystem.
-    pub path: PathBuf,
+    pub path: std::path::PathBuf,
+    #[cfg(not(feature = "std"))]
+    /// The location of this font on the filesystem.
+    pub path: String,
     /// The index of the font within the file.
     pub index: Option<i32>,
 }
@@ -153,16 +164,21 @@ impl Font {
 
         font_match.name().and_then(|name| {
             font_match.filename().map(|filename| Font {
-                name: name.to_owned(),
-                path: PathBuf::from(filename),
+                name: name.to_string(),
+                #[cfg(feature = "std")]
+                path: std::path::PathBuf::from(filename),
+                #[cfg(not(feature = "std"))]
+                path: filename.to_string(),
                 index: font_match.face_index(),
             })
         })
     }
 
     #[allow(dead_code)]
+    #[cfg(test)]
     fn print_debug(&self) {
-        println!(
+        extern crate std;
+        std::println!(
             "Name: {}\nPath: {}\nIndex: {:?}",
             self.name,
             self.path.display(),
@@ -404,8 +420,8 @@ impl<'fc> Pattern<'fc> {
     }
 }
 
-impl<'fc> std::fmt::Debug for Pattern<'fc> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<'fc> core::fmt::Debug for Pattern<'fc> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let fcstr = unsafe { ffi_dispatch!(LIB, FcNameUnparse, self.pat) };
         let fcstr = unsafe { CStr::from_ptr(fcstr as *const c_char) };
         let result = write!(f, "{:?}", fcstr);
@@ -548,7 +564,7 @@ impl<'fc> FontSet<'fc> {
     pub fn iter(&self) -> impl Iterator<Item = Pattern<'_>> {
         let patterns = unsafe {
             let fontset = self.fcset;
-            std::slice::from_raw_parts((*fontset).fonts, (*fontset).nfont as usize)
+            core::slice::from_raw_parts((*fontset).fonts, (*fontset).nfont as usize)
         };
         patterns
             .iter()
@@ -628,7 +644,10 @@ impl FromStr for FontFormat {
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use super::*;
+    use ::alloc::vec::Vec;
+    use std::println;
 
     #[test]
     fn it_works() {

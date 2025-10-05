@@ -8,7 +8,12 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use std::os::raw::{c_char, c_double, c_int, c_uchar, c_uint, c_ushort, c_void};
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+use core::ffi::{c_char, c_double, c_int, c_uchar, c_uint, c_ushort, c_void};
 
 pub use dlib::ffi_dispatch;
 
@@ -50,7 +55,7 @@ pub const FcTypeLangSet: u32 = 8_u32;
 pub type FcType = enum__FcType;
 
 pub mod constants {
-    use std::ffi::CStr;
+    use core::ffi::CStr;
 
     use super::c_int;
 
